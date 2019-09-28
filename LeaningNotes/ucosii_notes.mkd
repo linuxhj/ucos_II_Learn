@@ -1,0 +1,62 @@
+#OS_STK *OSTaskStkInit(void (*task)(void *p_arg), void *p_arg, OS_STK *ptos, INT16U opt)
+![comtexM3Reg](pic/comtexM3Reg.png)
+
+OS_STK 是一个32位的整型
+
+0x01000000L     xPSR
+task            R14
+0xFFFFFFFEL     R12
+0x12121212L     R3
+0x03030303L     R2
+0x01010101L     R1
+p_arg           R0
+0x11111111L     R11
+0x10101010L     R10
+0x09090909L     R9
+0x08080808L     R8
+0x07070707L     R7
+0x06060606L     R6
+0x05050505L     R5
+0x04040404L     R4
+－－－－>        返回指在此处的指针
+
+NVIC_INT_CTRL  = 0xE000ED04
+NVIC_PENDSVSET = 0x10000000
+OSCtxSw
+    LDR     R0, =NVIC_INT_CTRL
+    LDR     R0, =NVIC_PENDSVSET
+    STR     R1,[R0]
+    BX      LR
+
+
+OSStartHighRdy
+    LDR     R0, =NVIC_SYSPRI14          ; Set the PendSV exception priority
+    LDR     R1, =NVIC_PENDSV_PRI
+    STRB    R1, [R0]
+;NVIC_SYSPRI14   ＝ 0xE000ED22
+;NVIC_PENDSV_PRI ＝ 0xFF
+;把NVIC_PENDSV_PRI这个数据写入到地址为NVIC_SYSPRI14的内存中。
+;即*((char *)0xE000ED22) = 0xFF
+
+    MOVS    R0, #0         ; Set the PSP to 0 for initial context switch call
+    MSR     PSP, R0
+
+    LDR     R0, =OSRunning       ; OSRunning = TRUE
+    MOVS    R1, #1
+    STRB    R1, [R0]
+;把OSRunning置为1
+;即OSRunning = 1;
+
+    LDR     R0, =NVIC_INT_CTRL    ;Trigger the PendSV exception (causes context switch)
+    LDR     R1, =NVIC_PENDSVSET
+    STR     R1, [R0]
+;NVIC_INT_CTRL   EQU     0xE000ED04                             
+;NVIC_PENDSVSET  EQU     0x10000000 
+;把NVIC_PENDSVSET这个数据写入到地址为NVIC_INT_CTRL的内存中。
+;即*((unsigned long int *)0x10000000) = 0xE000ED04;
+
+    CPSIE   I                                                   
+
+OSStartHang
+    B       OSStartHang                                         ; Should never get here
+
